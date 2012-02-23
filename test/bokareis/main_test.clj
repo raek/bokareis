@@ -50,8 +50,8 @@
     (spit (f root "blog.meta")
           "{}")
     (-main (str root))
-    (.exists (f root "out" "index.html"))
-    => truthy
+    (slurp (f root "out" "index.html"))
+    => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")
     (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
     => (contains "<h1>Hello world</h1>")))
 
