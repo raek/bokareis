@@ -1,7 +1,8 @@
 (ns bokareis.main-test
   (:use midje.sweet
-        bokareis.main)
-  (:use [clojure.java.io :only [file] :rename {file f}])
+        bokareis.main
+        [clojure.java.io :only [file] :rename {file f}]
+        [clojure.data.json :only [json-str]])
   (:import (java.io File)
            (org.joda.time DateTime)))
 
@@ -43,15 +44,16 @@
 (fact "application renders posts"
   (with-temp-dir root
     (create-post (f root "posts")
-                 "{\"slug\": \"hello-world\", \"published\": \"2012-02-11T14:47:00Z\"}"
-                 "Hello world")
+                 (json-str {"slug" "hello-world"
+                            "published" "2012-02-11T14:47:00Z"})
+                 "# Hello world\n\nThis is a paragraph\n")
     (spit (f root "blog.meta")
           "{}")
     (-main (str root))
     (.exists (f root "out" "index.html"))
     => truthy
-    (.exists (f root "out" "2012" "02" "11" "hello-world" "index.html"))
-    => truthy))
+    (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
+    => (contains "<h1>Hello world</h1>")))
 
 (fact "list-post finds a post"
   (with-temp-dir root
@@ -81,15 +83,16 @@
     (list-posts root)
     => []))
 
-(fact
+(fact "read-post can read a post"
   (with-temp-dir root
     (create-post (f root "a")
-                 "{\"slug\": \"foo-bar\", \"published\": \"2012-02-11T14:47:00Z\"}"
+                 (json-str {"slug" "foo-bar"
+                            "published" "2012-02-11T14:47:00Z"})
                  "Foo bar.")
     (read-post (f root "a"))
-    => {"slug" "foo-bar"
-        "published" (DateTime/parse "2012-02-11T14:47:00Z")
-        "text" "Foo bar."}))
+    => (contains {"slug" "foo-bar"
+                  "published" (DateTime/parse "2012-02-11T14:47:00Z")
+                  "text" (contains "Foo bar.")})))
 
 (fact
   (relative-post-output-dir {"slug" "foo-bar"
