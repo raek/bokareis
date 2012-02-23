@@ -1,7 +1,8 @@
 (ns bokareis.main
   (:require [clojure.java.io :as io]
             [clojure.data.json :as json]
-            [clojure.java.shell :as sh])
+            [clojure.java.shell :as sh]
+            [clojure.string :as str])
   (:use [clojure.java.io :only [file] :rename {file f}])
   (:import (org.joda.time DateTime)))
 
@@ -21,7 +22,7 @@
 
 (declare list-posts slurp-shell-out render-and-slurp-markdown read-post
          read-json-file render-post render-index relative-post-output-dir
-         post-url)
+         post-url post-path-segments)
 
 (defn -main [root]
   (let [posts (map read-post (list-posts (f root "posts")))
@@ -72,11 +73,7 @@
           :encoding html-file-encoding)))
 
 (defn relative-post-output-dir [post]
-  (let [{:strs [published slug]} post
-        year  (format "%d"   (-> published .year .get))
-        month (format "%02d" (-> published .monthOfYear .get))
-        day   (format "%02d" (-> published .dayOfMonth .get))]
-    (io/file year month day slug)))
+  (apply io/file (post-path-segments post)))
 
 (defn render-index [posts out-dir]
   (with-open [writer (io/writer (io/file out-dir "index.html")
@@ -91,9 +88,14 @@
     (.write writer "</ul>")))
 
 (defn post-url [post]
+  (str "/"
+       (str/join "/" (post-path-segments post))
+       "/"))
+
+(defn post-path-segments [post]
   (let [{:strs [published slug]} post
         year  (format "%d"   (-> published .year .get))
         month (format "%02d" (-> published .monthOfYear .get))
         day   (format "%02d" (-> published .dayOfMonth .get))]
-    (format "/%s/%s/%s/%s/" year month day slug)))
+    [year month day slug]))
 
