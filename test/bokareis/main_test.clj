@@ -3,6 +3,7 @@
         bokareis.main
         [clojure.java.io :only [file] :rename {file f}]
         [clojure.data.json :only [json-str]])
+  (:require [net.cgrand.enlive-html :as h])
   (:import (java.io File)
            (org.joda.time DateTime)))
 
@@ -26,6 +27,10 @@
             ~@body)
           (finally
            (delete-file-tree ~sym)))))
+
+(defn html-contains [html-string]
+  (fn [html-tree]
+    ((contains html-string) (apply str (h/emit* html-tree)))))
 
 (fact "temp dir exists within body"
   (with-temp-dir t
@@ -92,7 +97,7 @@
     (read-post (f root "a"))
     => (contains {"slug" "foo-bar"
                   "published" (DateTime/parse "2012-02-11T14:47:00Z")
-                  "text" (contains "Foo bar.")})))
+                  "text" (html-contains "Foo bar.")})))
 
 (fact
   (relative-post-output-dir {"slug" "foo-bar"

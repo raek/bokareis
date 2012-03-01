@@ -2,15 +2,14 @@
   (:require [clojure.java.io :as io]
             [clojure.data.json :as json]
             [clojure.java.shell :as sh]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [net.cgrand.enlive-html :as h])
   (:use [clojure.java.io :only [file] :rename {file f}])
   (:import (org.joda.time DateTime)))
 
 (def post-meta-file-name "post.meta")
 
 (def post-text-file-name "text.markdown")
-
-(def post-text-key "text")
 
 (def markdown-file-encoding "UTF-8")
 
@@ -22,7 +21,7 @@
 
 (declare list-posts slurp-shell-out render-and-slurp-markdown read-post
          read-json-file render-post render-index relative-post-output-dir
-         post-url post-path-segments)
+         post-title post-url post-path-segments)
 
 (defn -main [root]
   (let [posts (map read-post (list-posts (f root "posts")))
@@ -39,9 +38,10 @@
 
 (defn read-post [post-dir]
   (let [meta (read-json-file (f post-dir post-meta-file-name))
-        text (render-and-slurp-markdown (f post-dir post-text-file-name))]
+        text (render-and-slurp-markdown (f post-dir post-text-file-name))
+        html-text (h/html-snippet text)]
     (assoc meta
-      post-text-key text
+      "text" html-text
       "published" (DateTime/parse (get meta "published")))))
 
 (defn- read-json-file [file]
@@ -69,7 +69,7 @@
   (let [post-out-dir (f out-dir (relative-post-output-dir post))]
     (.mkdirs post-out-dir)
     (spit (f post-out-dir "index.html")
-          (get post "text")
+          (apply str (h/emit* (get post "text")))
           :encoding html-file-encoding)))
 
 (defn relative-post-output-dir [post]
@@ -82,10 +82,14 @@
     (doseq [post posts]
       (.write writer (format "<li><a href=\"%s\">%s</a></li>\n"
                              (post-url post)
-                             (->> (get post "text")
-                                  (re-find #"<h1>(.*?)</h1>")
-                                  (second)))))
+                             (apply str (h/emit* (post-title post))))))
     (.write writer "</ul>")))
+
+(defn post-title [post]
+  (-> (get post "text")
+      (h/select [:h1])
+      (first)
+      (:content)))
 
 (defn post-url [post]
   (str "/"
