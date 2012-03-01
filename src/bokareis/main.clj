@@ -20,16 +20,19 @@
 (def markdown-command "markdown")
 
 (declare list-posts slurp-shell-out render-and-slurp-markdown read-post
-         read-json-file render-post render-index relative-post-output-dir
-         post-title post-url post-path-segments)
+         read-json-file render-post render-index write-text-file
+         relative-post-output-dir post-title post-url post-path-segments)
 
 (defn -main [root]
   (let [posts (map read-post (list-posts (f root "posts")))
         out-dir (f root "out")]
-    (.mkdirs out-dir)
-    (render-index posts out-dir)
+    (write-text-file (render-index posts)
+                     (f out-dir "index.html"))
     (doseq [post posts]
-      (render-post post out-dir))))
+      (write-text-file (render-post post)
+                       (f out-dir
+                          (relative-post-output-dir post)
+                          "index.html")))))
 
 (defn list-posts [node]
   (if (.exists (f node post-meta-file-name))
@@ -65,25 +68,24 @@
               (str "Command exited with non-zero status: " command)))
       out)))
 
-(defn render-post [post out-dir]
-  (let [post-out-dir (f out-dir (relative-post-output-dir post))]
-    (.mkdirs post-out-dir)
-    (spit (f post-out-dir "index.html")
-          (apply str (h/emit* (get post "text")))
-          :encoding html-file-encoding)))
+(defn render-post [post]
+  (apply str (h/emit* (get post "text"))))
+
+(defn render-index [posts]
+  (apply str
+         (concat ["<ul>\n"]
+                 (for [post posts]
+                   (format "<li><a href=\"%s\">%s</a></li>\n"
+                           (post-url post)
+                           (apply str (h/emit* (post-title post)))))
+                 ["</ul>"])))
+
+(defn write-text-file [string file]
+  (.mkdirs (.getParentFile file))
+  (spit file string :encoding html-file-encoding))
 
 (defn relative-post-output-dir [post]
   (apply io/file (post-path-segments post)))
-
-(defn render-index [posts out-dir]
-  (with-open [writer (io/writer (io/file out-dir "index.html")
-                                :encoding html-file-encoding)]
-    (.write writer "<ul>\n")
-    (doseq [post posts]
-      (.write writer (format "<li><a href=\"%s\">%s</a></li>\n"
-                             (post-url post)
-                             (apply str (h/emit* (post-title post))))))
-    (.write writer "</ul>")))
 
 (defn post-title [post]
   (-> (get post "text")
