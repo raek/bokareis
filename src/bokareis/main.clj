@@ -21,15 +21,18 @@
 
 (declare list-posts slurp-shell-out render-and-slurp-markdown read-post
          read-json-file render-post render-index write-text-file
-         relative-post-output-dir post-title post-url post-path-segments)
+         relative-post-output-dir post-title post-url post-path-segments
+         expand-links post-link-node? expand-post-link)
 
 (defn -main [root]
   (let [posts (map read-post (list-posts (f root "posts")))
+        posts-by-slug (into {} (for [post posts]
+                                 [(get post "slug") post]))
         out-dir (f root "out")]
     (write-text-file (render-index posts)
                      (f out-dir "index.html"))
     (doseq [post posts]
-      (write-text-file (render-post post)
+      (write-text-file (render-post post posts-by-slug)
                        (f out-dir
                           (relative-post-output-dir post)
                           "index.html")))))
@@ -68,8 +71,8 @@
               (str "Command exited with non-zero status: " command)))
       out)))
 
-(defn render-post [post]
-  (apply str (h/emit* (get post "text"))))
+(defn render-post [post posts-by-slug]
+  (apply str (h/emit* (expand-links (get post "text") posts-by-slug))))
 
 (defn render-index [posts]
   (apply str
@@ -105,3 +108,20 @@
         day   (format "%02d" (-> published .dayOfMonth .get))]
     [year month day slug]))
 
+(defn expand-links [tree posts-by-slug]
+  (h/at tree [(h/pred post-link-node?)] (expand-post-link posts-by-slug)))
+
+(defn post-link-node? [node]
+  (= (:tag node) :post-link))
+
+(defn expand-post-link [posts-by-slug]
+  (fn [node]
+    (let [slug (get-in node [:attrs :to])
+          post (get posts-by-slug slug)]
+      (if post
+        (let [url (post-url post)
+              title (post-title post)]
+          {:tag :a
+           :attrs {:href url}
+           :content title})
+        (throw (RuntimeException. (str "Unknown post slug: " slug)))))))

@@ -51,14 +51,16 @@
     (create-post (f root "posts")
                  (json-str {"slug" "hello-world"
                             "published" "2012-02-11T14:47:00Z"})
-                 "# Hello world\n\nThis is a paragraph\n")
+                 "# Hello world\n\nThis is a paragraph\n\n<post-link to=\"hello-world\"></post-link>\n")
     (spit (f root "blog.meta")
           "{}")
     (-main (str root))
     (slurp (f root "out" "index.html"))
     => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")
     (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
-    => (contains "<h1>Hello world</h1>")))
+    => (contains "<h1>Hello world</h1>")
+    (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
+    => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")))
 
 (fact "list-post finds a post"
   (with-temp-dir root
@@ -103,4 +105,13 @@
   (relative-post-output-dir {"slug" "foo-bar"
                              "published" (DateTime/parse "2012-02-11T14:47:00Z")})
   => (f "2012" "02" "11" "foo-bar"))
+
+(fact "render-post can handle links to other posts"
+  (render-post {"slug" "foo-bar"
+                "published" (DateTime/parse "2012-03-01T16:41:00Z")
+                "text" (h/html-snippet "<h1>Foo Bar</h1><p><post-link to=\"hello-world\"></p>")}
+               {"hello-world" {"slug" "hello-world"
+                               "published" (DateTime/parse "2012-02-11T14:47:00Z")
+                               "text" (h/html-snippet "<h1>Hello world</h1>\n\n<p>This is a paragraph</p>\n")}})
+  => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>"))
 
