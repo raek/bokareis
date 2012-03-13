@@ -52,15 +52,22 @@
                  (json-str {"slug" "hello-world"
                             "published" "2012-02-11T14:47:00Z"})
                  "# Hello world\n\nThis is a paragraph\n\n<post-link to=\"hello-world\"></post-link>\n")
-    (spit (f root "blog.meta")
-          "{}")
+    (write-text-file "{}" (f root "blog.meta"))
+    (write-text-file "This is a post.<post-text></post-text>"
+                     (f root "templates" "post.html"))
+    (write-text-file "This is the index.<posts></posts>"
+                     (f root "templates" "index.html"))
     (-main (str root))
     (slurp (f root "out" "index.html"))
     => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")
     (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
     => (contains "<h1>Hello world</h1>")
     (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
-    => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")))
+    => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")
+    (slurp (f root "out" "index.html"))
+    => (contains "This is the index.")
+    (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
+    => (contains "This is a post.")))
 
 (fact "list-post finds a post"
   (with-temp-dir root
@@ -110,8 +117,9 @@
   (render-post {"slug" "foo-bar"
                 "published" (DateTime/parse "2012-03-01T16:41:00Z")
                 "text" (h/html-snippet "<h1>Foo Bar</h1><p><post-link to=\"hello-world\"></p>")}
-               {"hello-world" {"slug" "hello-world"
-                               "published" (DateTime/parse "2012-02-11T14:47:00Z")
-                               "text" (h/html-snippet "<h1>Hello world</h1>\n\n<p>This is a paragraph</p>\n")}})
+               {:posts-by-slug {"hello-world" {"slug" "hello-world"
+                                               "published" (DateTime/parse "2012-02-11T14:47:00Z")
+                                               "text" (h/html-snippet "<h1>Hello world</h1>\n\n<p>This is a paragraph</p>\n")}}
+                :templates {:post {:tag :post-text}}})
   => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>"))
 

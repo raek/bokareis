@@ -19,20 +19,27 @@
 
 (def markdown-command "markdown")
 
-(declare list-posts slurp-shell-out render-and-slurp-markdown read-post
-         read-json-file render-post render-index write-text-file
-         relative-post-output-dir post-title post-url post-path-segments
-         expand-links post-link-node? expand-post-link)
+(declare list-posts slurp-shell-out render-and-slurp-markdown
+         read-template read-post read-json-file render-post render-index
+         write-text-file relative-post-output-dir post-title post-url
+         post-path-segments expand-links post-link-node? expand-post-link
+         expand-post-template post-text-node? expand-index-template
+         posts-node?)
 
 (defn -main [root]
   (let [posts (map read-post (list-posts (f root "posts")))
         posts-by-slug (into {} (for [post posts]
                                  [(get post "slug") post]))
-        out-dir (f root "out")]
-    (write-text-file (render-index posts)
+        out-dir (f root "out")
+        post-template (read-template (f root "templates" "post.html"))
+        index-template (read-template (f root "templates" "index.html"))
+        blog {:templates {:post post-template
+                          :index index-template}
+              :posts-by-slug posts-by-slug}]
+    (write-text-file (render-index blog)
                      (f out-dir "index.html"))
     (doseq [post posts]
-      (write-text-file (render-post post posts-by-slug)
+      (write-text-file (render-post post blog)
                        (f out-dir
                           (relative-post-output-dir post)
                           "index.html")))))
@@ -41,6 +48,9 @@
   (if (.exists (f node post-meta-file-name))
     (list node)
     (mapcat list-posts (.listFiles node))))
+
+(defn read-template [file]
+  (h/html-resource (io/reader file :encoding html-file-encoding)))
 
 (defn read-post [post-dir]
   (let [meta (read-json-file (f post-dir post-meta-file-name))
@@ -71,17 +81,25 @@
               (str "Command exited with non-zero status: " command)))
       out)))
 
-(defn render-post [post posts-by-slug]
-  (apply str (h/emit* (expand-links (get post "text") posts-by-slug))))
+(defn render-post [post blog]
+  (let [{:keys [posts-by-slug templates]} blog
+        text-tree (expand-links (get post "text") posts-by-slug)
+        post-tree (expand-post-template (:post templates) text-tree)]
+    (apply str (h/emit* post-tree))))
 
-(defn render-index [posts]
-  (apply str
-         (concat ["<ul>\n"]
-                 (for [post posts]
-                   (format "<li><a href=\"%s\">%s</a></li>\n"
-                           (post-url post)
-                           (apply str (h/emit* (post-title post)))))
-                 ["</ul>"])))
+(defn render-index [blog]
+  (let [{:keys [posts-by-slug templates]} blog
+        posts (vals posts-by-slug)
+        posts-string (apply str
+                            (concat ["<ul>\n"]
+                                    (for [post posts]
+                                      (format "<li><a href=\"%s\">%s</a></li>\n"
+                                              (post-url post)
+                                              (apply str (h/emit* (post-title post)))))
+                                    ["</ul>"]))
+        posts-tree (h/html-snippet posts-string)]
+    (apply str (h/emit* (expand-index-template (:index templates)
+                                               posts-tree)))))
 
 (defn write-text-file [string file]
   (.mkdirs (.getParentFile file))
@@ -125,3 +143,15 @@
            :attrs {:href url}
            :content title})
         (throw (RuntimeException. (str "Unknown post slug: " slug)))))))
+
+(defn expand-post-template [template text-tree]
+  (h/at template [(h/pred post-text-node?)] (constantly text-tree)))
+
+(defn post-text-node? [node]
+  (= (:tag node) :post-text))
+
+(defn expand-index-template [template post-list-tree]
+  (h/at template [(h/pred posts-node?)] (constantly post-list-tree)))
+
+(defn posts-node? [node]
+  (= (:tag node) :posts))
