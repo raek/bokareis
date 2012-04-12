@@ -1,6 +1,7 @@
 (ns bokareis.main-test
   (:use midje.sweet
         bokareis.main
+        bokareis.io
         [bokareis.util :only [with-temp-dir html-contains create-post]]
         [clojure.java.io :only [file] :rename {file f}]
         [clojure.data.json :only [json-str]])

@@ -14,3 +14,10 @@
 (defn template [blog template-name]
   (get-in blog [:templates template-name]))
 
+(defn post-path-segments [post]
+  (let [{:strs [published slug]} post
+        year  (format "%d"   (-> published .year .get))
+        month (format "%02d" (-> published .monthOfYear .get))
+        day   (format "%02d" (-> published .dayOfMonth .get))]
+    [year month day slug]))
+
