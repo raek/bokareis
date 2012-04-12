@@ -3,7 +3,8 @@
             [clojure.data.json :as json]
             [clojure.java.shell :as sh]
             [clojure.string :as str]
-            [net.cgrand.enlive-html :as h])
+            [net.cgrand.enlive-html :as h]
+            [bokareis.blog :as blog])
   (:use [clojure.java.io :only [file] :rename {file f}])
   (:import (org.joda.time DateTime)))
 
@@ -28,14 +29,12 @@
 
 (defn -main [root]
   (let [posts (map read-post (list-posts (f root "posts")))
-        posts-by-slug (into {} (for [post posts]
-                                 [(get post "slug") post]))
-        out-dir (f root "out")
         post-template (read-template (f root "templates" "post.html"))
         index-template (read-template (f root "templates" "index.html"))
-        blog {:templates {:post post-template
-                          :index index-template}
-              :posts-by-slug posts-by-slug}]
+        templates {:post post-template
+                   :index index-template}
+        blog (blog/make-blog posts templates)
+        out-dir (f root "out")]
     (write-text-file (render-index blog)
                      (f out-dir "index.html"))
     (doseq [post posts]
@@ -82,23 +81,20 @@
       out)))
 
 (defn render-post [post blog]
-  (let [{:keys [posts-by-slug templates]} blog
-        text-tree (expand-links (get post "text") posts-by-slug)
-        post-tree (expand-post-template (:post templates) text-tree)]
+  (let [text-tree (expand-links (get post "text") (partial blog/post-by-slug blog))
+        post-tree (expand-post-template (blog/template blog :post) text-tree)]
     (apply str (h/emit* post-tree))))
 
 (defn render-index [blog]
-  (let [{:keys [posts-by-slug templates]} blog
-        posts (vals posts-by-slug)
-        posts-string (apply str
+  (let [posts-string (apply str
                             (concat ["<ul>\n"]
-                                    (for [post posts]
+                                    (for [post (blog/all-posts blog)]
                                       (format "<li><a href=\"%s\">%s</a></li>\n"
                                               (post-url post)
                                               (apply str (h/emit* (post-title post)))))
                                     ["</ul>"]))
         posts-tree (h/html-snippet posts-string)]
-    (apply str (h/emit* (expand-index-template (:index templates)
+    (apply str (h/emit* (expand-index-template (blog/template blog :index)
                                                posts-tree)))))
 
 (defn write-text-file [string file]
@@ -135,7 +131,7 @@
 (defn expand-post-link [posts-by-slug]
   (fn [node]
     (let [slug (get-in node [:attrs :to])
-          post (get posts-by-slug slug)]
+          post (posts-by-slug slug)]
       (if post
         (let [url (post-url post)
               title (post-title post)]
