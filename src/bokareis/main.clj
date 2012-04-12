@@ -28,16 +28,19 @@
     (apply str (h/emit* post-tree))))
 
 (defn render-index [blog]
-  (let [posts-string (apply str
-                            (concat ["<ul>\n"]
-                                    (for [post (blog/all-posts blog)]
-                                      (format "<li><a href=\"%s\">%s</a></li>\n"
-                                              (post-url post)
-                                              (apply str (h/emit* (post-title post)))))
-                                    ["</ul>"]))
-        posts-tree (h/html-snippet posts-string)]
-    (apply str (h/emit* (expand-index-template (blog/template blog :index)
-                                               posts-tree)))))
+  (let [posts-tree {:tag :ul
+                    :content (for [post (blog/all-posts blog)
+                                   :let [url (post-url post)
+                                         title (post-title post)]]
+                               {:tag :li
+                                :content {:tag :a
+                                          :attrs {:href url}
+                                          :content title}})}
+        template (blog/template blog :index)]
+    (->> posts-tree
+         (expand-index-template template)
+         (h/emit*)
+         (apply str))))
 
 (defn post-title [post]
   (-> (get post "text")
