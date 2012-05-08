@@ -8,29 +8,6 @@
   (:require [net.cgrand.enlive-html :as h])
   (:import (org.joda.time DateTime)))
 
-(fact "application renders posts"
-  (with-temp-dir root
-    (create-post (f root "posts")
-                 (json-str {"slug" "hello-world"
-                            "published" "2012-02-11T14:47:00Z"})
-                 "# Hello world\n\nThis is a paragraph\n\n<post-link to=\"hello-world\"></post-link>\n")
-    (write-text-file "{}" (f root "blog.meta"))
-    (write-text-file "This is a post.<post-text></post-text>"
-                     (f root "templates" "post.html"))
-    (write-text-file "This is the index.<posts></posts>"
-                     (f root "templates" "index.html"))
-    (-main (str root))
-    (slurp (f root "out" "index.html"))
-    => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")
-    (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
-    => (contains "<h1>Hello world</h1>")
-    (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
-    => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>")
-    (slurp (f root "out" "index.html"))
-    => (contains "This is the index.")
-    (slurp (f root "out" "2012" "02" "11" "hello-world" "index.html"))
-    => (contains "This is a post.")))
-
 (fact "list-post finds a post"
   (with-temp-dir root
     (create-post (f root "a") "" "")
