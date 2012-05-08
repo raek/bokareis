@@ -33,9 +33,9 @@
                                    :let [url (post-url post)
                                          title (post-title post)]]
                                {:tag :li
-                                :content {:tag :a
-                                          :attrs {:href url}
-                                          :content title}})}
+                                :content [{:tag :a
+                                           :attrs {:href url}
+                                           :content title}]})}
         template (blog/template blog :index)]
     (->> posts-tree
          (expand-index-template template)
