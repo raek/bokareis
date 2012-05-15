@@ -12,6 +12,15 @@
          expand-post-template post-text-node? expand-post-text-node
          expand-index-template posts-node? expand-posts-node)
 
+(def prefix-blog-root-to-plugin
+  {:matcher     (fn [node]
+                  (contains? (:attrs node) :prefix-blog-root-to))
+   :transformer (fn [node blog slug]
+                  (let [attr-key (-> node :attrs :prefix-blog-root-to keyword)]
+                    (-> node
+                        (update-in [:attrs] dissoc :prefix-blog-root-to)
+                        (update-in [:attrs attr-key] #(str "ROOT/" %)))))})
+
 (def plugins
   [{:matcher     #'post-link-node?
     :transformer #'expand-post-link}
