@@ -52,13 +52,3 @@
                              "published" (DateTime/parse "2012-02-11T14:47:00Z")})
   => (f "2012" "02" "11" "foo-bar"))
 
-(fact "render-post can handle links to other posts"
-  (render-post {"slug" "foo-bar"
-                "published" (DateTime/parse "2012-03-01T16:41:00Z")
-                "text" (h/html-snippet "<h1>Foo Bar</h1><p><post-link to=\"hello-world\"></p>")}
-               {:posts-by-slug {"hello-world" {"slug" "hello-world"
-                                               "published" (DateTime/parse "2012-02-11T14:47:00Z")
-                                               "text" (h/html-snippet "<h1>Hello world</h1>\n\n<p>This is a paragraph</p>\n")}}
-                :templates {:post {:tag :post-text}}})
-  => (contains "<a href=\"/2012/02/11/hello-world/\">Hello world</a>"))
-
