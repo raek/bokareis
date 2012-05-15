@@ -7,9 +7,18 @@
                             write-text-file
                             relative-post-output-dir]]))
 
-(declare render-post render-index post-title post-url expand-links
-         post-link-node? expand-post-link expand-post-template
-         post-text-node? expand-index-template posts-node?)
+(declare plugins -main expand apply-plugin render-post render-index post-title
+         post-url expand-links post-link-node? expand-post-link
+         expand-post-template post-text-node? expand-post-text-node
+         expand-index-template posts-node? expand-posts-node)
+
+(def plugins
+  [{:matcher     #'post-link-node?
+    :transformer #'expand-post-link}
+   {:matcher     #'post-text-node?
+    :transformer #'expand-post-text-node}
+   {:matcher     #'posts-node?
+    :transformer #'expand-posts-node}])
 
 (defn -main [root]
   (let [blog (read-blog root)
@@ -22,25 +31,21 @@
                           (relative-post-output-dir post)
                           "index.html")))))
 
+(defn expand [tree blog self-slug]
+  (reduce #(apply-plugin %2 %1 blog self-slug) tree plugins))
+
+(defn apply-plugin [plugin tree blog self-slug]
+  (let [{:keys [matcher transformer]} plugin]
+    (h/at tree [(h/pred matcher)] #(transformer % blog self-slug))))
+
 (defn render-post [post blog]
-  (let [text-tree (expand-links (get post "text") (partial blog/post-by-slug blog))
-        post-tree (expand-post-template (blog/template blog :post) text-tree)]
+  (let [post-tree (expand (blog/template blog :post) blog (get post "slug"))]
     (apply str (h/emit* post-tree))))
 
 (defn render-index [blog]
-  (let [posts-tree {:tag :ul
-                    :content (for [post (blog/all-posts blog)
-                                   :let [url (post-url post)
-                                         title (post-title post)]]
-                               {:tag :li
-                                :content [{:tag :a
-                                           :attrs {:href url}
-                                           :content title}]})}
-        template (blog/template blog :index)]
-    (->> posts-tree
-         (expand-index-template template)
-         (h/emit*)
-         (apply str))))
+  (->> (expand (blog/template blog :index) blog nil)
+       (h/emit*)
+       (apply str)))
 
 (defn post-title [post]
   (-> (get post "text")
@@ -53,32 +58,37 @@
        (str/join "/" (blog/post-path-segments post))
        "/"))
 
-(defn expand-links [tree posts-by-slug]
-  (h/at tree [(h/pred post-link-node?)] (expand-post-link posts-by-slug)))
-
 (defn post-link-node? [node]
   (= (:tag node) :post-link))
 
-(defn expand-post-link [posts-by-slug]
-  (fn [node]
-    (let [slug (get-in node [:attrs :to])
-          post (posts-by-slug slug)]
-      (if post
-        (let [url (post-url post)
-              title (post-title post)]
-          {:tag :a
-           :attrs {:href url}
-           :content title})
-        (throw (RuntimeException. (str "Unknown post slug: " slug)))))))
-
-(defn expand-post-template [template text-tree]
-  (h/at template [(h/pred post-text-node?)] (constantly text-tree)))
+(defn expand-post-link [node blog _]
+  (let [slug (get-in node [:attrs :to])
+        post (blog/post-by-slug blog slug)]
+    (if post
+      (let [url (post-url post)
+            title (post-title post)]
+        {:tag :a
+         :attrs {:href url}
+         :content title})
+      (throw (RuntimeException. (str "Unknown post slug: " slug))))))
 
 (defn post-text-node? [node]
   (= (:tag node) :post-text))
 
-(defn expand-index-template [template post-list-tree]
-  (h/at template [(h/pred posts-node?)] (constantly post-list-tree)))
+(defn expand-post-text-node [_ blog slug]
+  (let [post (blog/post-by-slug blog slug)
+        text-tree (get post "text")]
+    (expand text-tree blog slug)))
 
 (defn posts-node? [node]
   (= (:tag node) :posts))
+
+(defn expand-posts-node [_ blog _]
+  {:tag :ul
+   :content (for [post (blog/all-posts blog)
+                  :let [url (post-url post)
+                        title (post-title post)]]
+              {:tag :li
+               :content [{:tag :a
+                          :attrs {:href url}
+                          :content title}]})})
