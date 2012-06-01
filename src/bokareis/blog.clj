@@ -1,4 +1,6 @@
-(ns bokareis.blog)
+(ns bokareis.blog
+  (:require [clojure.string :as str]
+            [net.cgrand.enlive-html :as h]))
 
 (defn make-blog [posts templates]
   {:posts-by-slug (into {} (for [post posts]
@@ -20,4 +22,15 @@
         month (format "%02d" (-> published .monthOfYear .get))
         day   (format "%02d" (-> published .dayOfMonth .get))]
     [year month day slug]))
+
+(defn post-title [post]
+  (-> (get post "text")
+      (h/select [:h1])
+      (first)
+      (:content)))
+
+(defn post-url [post]
+  (str "/"
+       (str/join "/" (post-path-segments post))
+       "/"))
 

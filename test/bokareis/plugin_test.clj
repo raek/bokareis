@@ -1,6 +1,6 @@
 (ns bokareis.plugin-test
   (:use midje.sweet
-        bokareis.main))
+        bokareis.plugin))
 
 (fact "prefix-blog-root-to adds blog root to given attribute"
   (apply-plugin {:matcher prefix-blog-root-to-node?
