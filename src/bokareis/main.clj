@@ -7,10 +7,11 @@
                             write-text-file
                             relative-post-output-dir]]))
 
-(declare plugins -main expand apply-plugin render-post render-index post-title
-         post-url expand-links post-link-node? expand-post-link
-         expand-post-template post-text-node? expand-post-text-node
-         expand-index-template posts-node? expand-posts-node)
+(declare plugins register-plugin defplugin -main expand apply-plugin
+         render-post render-index post-title post-url expand-links
+         post-link-node? expand-post-link-node expand-post-template
+         post-text-node? expand-post-text-node expand-index-template
+         posts-node? expand-posts-node)
 
 (def prefix-blog-root-to-plugin
   {:matcher     (fn [node]
@@ -21,13 +22,14 @@
                         (update-in [:attrs] dissoc :prefix-blog-root-to)
                         (update-in [:attrs attr-key] #(str "ROOT/" %)))))})
 
-(def plugins
-  [{:matcher     #'post-link-node?
-    :transformer #'expand-post-link}
-   {:matcher     #'post-text-node?
-    :transformer #'expand-post-text-node}
-   {:matcher     #'posts-node?
-    :transformer #'expand-posts-node}])
+(def plugins [])
+
+(defn register-plugin [matcher transformer]
+  (alter-var-root #'plugins conj {:matcher matcher, :transformer transformer}))
+
+(defmacro defplugin [id]
+  `(register-plugin (var ~(symbol (str (name id) "-node?")))
+                    (var ~(symbol (str "expand-" (name id) "-node")))))
 
 (defn -main [root]
   (let [blog (read-blog root)
@@ -67,10 +69,12 @@
        (str/join "/" (blog/post-path-segments post))
        "/"))
 
+(defplugin post-link)
+
 (defn post-link-node? [node]
   (= (:tag node) :post-link))
 
-(defn expand-post-link [node blog _]
+(defn expand-post-link-node [node blog _]
   (let [slug (get-in node [:attrs :to])
         post (blog/post-by-slug blog slug)]
     (if post
@@ -81,6 +85,8 @@
          :content title})
       (throw (RuntimeException. (str "Unknown post slug: " slug))))))
 
+(defplugin post-text)
+
 (defn post-text-node? [node]
   (= (:tag node) :post-text))
 
@@ -88,6 +94,8 @@
   (let [post (blog/post-by-slug blog slug)
         text-tree (get post "text")]
     (expand text-tree blog slug)))
+
+(defplugin posts)
 
 (defn posts-node? [node]
   (= (:tag node) :posts))
