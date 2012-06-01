@@ -102,6 +102,8 @@
                           :attrs {:href url}
                           :content title}]})})
 
+(defplugin prefix-blog-root-to)
+
 (defn prefix-blog-root-to-node? [node]
   (contains? (:attrs node) :prefix-blog-root-to))
 
