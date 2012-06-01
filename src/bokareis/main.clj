@@ -11,16 +11,8 @@
          render-post render-index post-title post-url expand-links
          post-link-node? expand-post-link-node expand-post-template
          post-text-node? expand-post-text-node expand-index-template
-         posts-node? expand-posts-node)
-
-(def prefix-blog-root-to-plugin
-  {:matcher     (fn [node]
-                  (contains? (:attrs node) :prefix-blog-root-to))
-   :transformer (fn [node blog slug]
-                  (let [attr-key (-> node :attrs :prefix-blog-root-to keyword)]
-                    (-> node
-                        (update-in [:attrs] dissoc :prefix-blog-root-to)
-                        (update-in [:attrs attr-key] #(str "ROOT/" %)))))})
+         posts-node? expand-posts-node prefix-blog-root-to-node?
+         expand-prefix-blog-root-to-node)
 
 (def plugins [])
 
@@ -109,3 +101,12 @@
                :content [{:tag :a
                           :attrs {:href url}
                           :content title}]})})
+
+(defn prefix-blog-root-to-node? [node]
+  (contains? (:attrs node) :prefix-blog-root-to))
+
+(defn expand-prefix-blog-root-to-node [node blog slug]
+  (let [attr-key (-> node :attrs :prefix-blog-root-to keyword)]
+    (-> node
+        (update-in [:attrs] dissoc :prefix-blog-root-to)
+        (update-in [:attrs attr-key] #(str "ROOT/" %)))))

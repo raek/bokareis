@@ -3,7 +3,8 @@
         bokareis.main))
 
 (fact "prefix-blog-root-to adds blog root to given attribute"
-  (apply-plugin prefix-blog-root-to-plugin
+  (apply-plugin {:matcher prefix-blog-root-to-node?
+                 :transformer expand-prefix-blog-root-to-node}
                 {:tag :a
                  :attrs {:href "foo.png"
                          :prefix-blog-root-to "href"}
